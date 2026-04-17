@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Discovery Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom animations and shapes */
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+        .animate-ping-custom {
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        .tooltip-enter {
+            animation: tooltipIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes tooltipIn {
+            from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        .tooltip-standard-enter {
+            animation: standardIn 0.2s ease-out forwards;
+        }
+        @keyframes standardIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .star-shape {
+            width: 1rem;
+            height: 1rem;
+            background-color: #facc15;
+            transform: rotate(45deg);
+            border-radius: 0.125rem;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.8);
+            position: relative;
+        }
+        .star-shape::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-color: #facc15;
+            transform: rotate(-45deg);
+            border-radius: 0.125rem;
+        }
+        /* Ensure the interaction layer is the reference for the centered feather popup */
+        #interaction-layer {
+            position: absolute;
+            inset: 0;
+        }
+    </style>
+</head>
+<body class="bg-neutral-900 min-h-screen flex items-center justify-center p-4 sm:p-8 font-sans antialiased text-white">
+
+    <div class="max-w-5xl w-full flex flex-col gap-6">
+        <header class="text-center">
+            <h1 class="text-3xl font-bold mb-2 tracking-tight">Garden Discovery Map</h1>
+            <p class="text-neutral-400">Explore the glowing stars to reveal hidden items found in the garden.</p>
+        </header>
+
+        <!-- Interactive Map Container -->
+        <div class="relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black">
+            <img 
+                src="https://iili.io/BUElXnf.md.png" 
+                alt="Garden Map" 
+                class="w-full h-auto block select-none pointer-events-none"
+            >
+
+            <!-- Interaction Layer -->
+            <div id="interaction-layer">
+                <!-- Points and Pop-ups will be injected here via JavaScript -->
+            </div>
+        </div>
+
+        <footer class="text-center text-neutral-500 text-sm">
+            Tap or hover over the pulsing stars to explore the location.
+        </footer>
+    </div>
+
+    <script>
+        const interactionPoints = [
+            {
+                id: 'puddle',
+                x: 15.3,
+                y: 29.8,
+                image: 'https://iili.io/BUElGun.png',
+                label: 'Water Puddle',
+                description: 'What a large puddle of water! Seems like someone has been splashing around the water…'
+            },
+            {
+                id: 'lily',
+                x: 32.8,
+                y: 37.8,
+                image: 'https://iili.io/BUEl0vt.png',
+                label: 'Lily Pad',
+                description: 'This feels moist and slimy… Someone must have been sitting here…'
+            },
+            {
+                id: 'fur',
+                x: 56.6,
+                y: 35.5,
+                image: 'https://iili.io/BUElc3N.png',
+                label: 'Fur',
+                description: 'Some mysterious brown fur found near the deck.'
+            },
+            {
+                id: 'bench',
+                x: 52.4,
+                y: 5.5,
+                image: 'https://iili.io/BUElMjs.png',
+                label: 'Skin Shed',
+                description: 'A piece of dry skin with scaly pattern found resting on the wooden bench.'
+            },
+            {
+                id: 'feather',
+                x: 87.8,
+                y: 69,
+                image: 'https://iili.io/BUEllaI.png',
+                label: 'Feather',
+                description: 'A soft brown feather on the ground.'
+            }
+        ];
+
+        const container = document.getElementById('interaction-layer');
+        let activeId = null;
+
+        function renderPoints() {
+            container.innerHTML = '';
+            
+            interactionPoints.forEach(point => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'absolute';
+                wrapper.style.left = `${point.x}%`;
+                wrapper.style.top = `${point.y}%`;
+                wrapper.style.transform = 'translate(-50%, -50%)';
+
+                const isActive = activeId === point.id;
+
+                const btn = document.createElement('button');
+                btn.className = 'relative flex items-center justify-center w-8 h-8 focus:outline-none transition-transform hover:scale-110 active:scale-95 z-10';
+                btn.innerHTML = `
+                    <span class="absolute inset-0 rounded-full bg-yellow-400 animate-ping-custom opacity-75"></span>
+                    <div class="star-shape"></div>
+                `;
+
+                // Interaction handlers
+                const show = () => { if(activeId !== point.id) { activeId = point.id; renderPoints(); } };
+                const hide = () => { if(activeId === point.id) { activeId = null; renderPoints(); } };
+                const toggle = (e) => {
+                    e.stopPropagation();
+                    activeId = (activeId === point.id) ? null : point.id;
+                    renderPoints();
+                };
+
+                btn.onmouseenter = show;
+                btn.onmouseleave = hide;
+                btn.onclick = toggle;
+
+                wrapper.appendChild(btn);
+                container.appendChild(wrapper);
+
+                if (isActive) {
+                    const isFeather = point.id === 'feather';
+                    const tooltip = document.createElement('div');
+                    
+                    if (isFeather) {
+                        // SPECIFIC FEATHER LOGIC: Exact center of map
+                        tooltip.style.left = '50%';
+                        tooltip.style.top = '50%';
+                        // Transform is handled by CSS animation keyframes tooltip-enter
+                        tooltip.className = `absolute z-50 w-64 sm:w-80 bg-white/95 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.6)] rounded-2xl p-5 border border-white/40 tooltip-enter text-black text-center pointer-events-none`;
+                        
+                        tooltip.innerHTML = `
+                            <div class="flex flex-col gap-4">
+                                <div class="rounded-xl overflow-hidden bg-neutral-100 h-40 sm:h-48 flex items-center justify-center shadow-inner">
+                                    <img src="${point.image}" alt="${point.label}" class="w-full h-full object-contain p-2">
+                                </div>
+                                <div class="px-2">
+                                    <h3 class="text-xl font-black text-neutral-900 leading-tight uppercase tracking-tight">${point.label}</h3>
+                                    <p class="text-sm text-neutral-600 mt-2 leading-relaxed">${point.description}</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Standard logic for other items
+                        const isFarRight = point.x > 75;
+                        const isFarLeft = point.x < 25;
+                        const isBottomSide = point.y > 60;
+
+                        let posClasses = 'ml-6';
+                        let arrowClasses = 'left-[-6px] border-l border-b top-4';
+
+                        if (isFarRight) {
+                            posClasses = '-translate-x-full -ml-8';
+                            arrowClasses = 'right-[-6px] border-r border-t top-4';
+                        } else if (isFarLeft) {
+                            posClasses = 'ml-8';
+                            arrowClasses = 'left-[-6px] border-l border-b top-4';
+                        }
+
+                        if (isBottomSide) {
+                            posClasses += ' -translate-y-[calc(100%+16px)]';
+                            arrowClasses = isFarRight 
+                                ? 'right-4 bottom-[-6px] border-r border-b' 
+                                : 'left-4 bottom-[-6px] border-l border-b';
+                        } else {
+                            posClasses += ' mt-4';
+                        }
+                        
+                        tooltip.className = `absolute z-50 w-48 sm:w-64 bg-white/95 backdrop-blur-sm shadow-2xl rounded-xl p-3 border border-white/20 tooltip-standard-enter text-black ${posClasses}`;
+                        tooltip.style.top = '0';
+                        
+                        // Arrow for non-feather popups
+                        const arrow = document.createElement('div');
+                        arrow.className = `absolute w-3 h-3 bg-white rotate-45 ${arrowClasses}`;
+                        tooltip.appendChild(arrow);
+
+                        tooltip.innerHTML += `
+                            <div class="flex flex-col gap-3">
+                                <div class="rounded-lg overflow-hidden bg-neutral-100 h-32 sm:h-40 flex items-center justify-center">
+                                    <img src="${point.image}" alt="${point.label}" class="w-full h-full object-contain pointer-events-none">
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-neutral-800 leading-tight">${point.label}</h3>
+                                    <p class="text-sm text-neutral-600 mt-1">${point.description}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (isFeather) {
+                        container.appendChild(tooltip);
+                    } else {
+                        wrapper.appendChild(tooltip);
+                    }
+                }
+            });
+        }
+
+        // Global click to dismiss
+        window.onclick = (e) => {
+            if (activeId !== null) {
+                activeId = null;
+                renderPoints();
+            }
+        };
+
+        // Initial render
+        renderPoints();
+    </script>
+</body>
+</html>
