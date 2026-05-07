@@ -1,0 +1,83 @@
+import React, { useState, useEffect } from 'react';
+import { Stage, Layer, Line, Circle, Text, Image } from 'react-konva';
+import useImage from 'use-image';
+
+const CircuitApp = ({ uploadedImageSrc }) => {
+  const [img] = useImage(uploadedImageSrc);
+  const [lines, setLines] = useState([]);
+  const [isSuccess, setIsSuccess] = useState(false);
+  
+  // Define coordinates for anchors on your components
+  // In a real app, these would be set dynamically or via a calibration step
+  const anchors = {
+    PS_POS: { id: 'PS_POS', x: 100, y: 100, label: 'Power (+)' },
+    PS_NEG: { id: 'PS_NEG', x: 100, y: 150, label: 'Power (-)' },
+    RU1_A:  { id: 'RU1_A',  x: 300, y: 50,  label: 'RU1' },
+    RU1_B:  { id: 'RU1_B',  x: 400, y: 50,  label: 'RU1' },
+    RU2_A:  { id: 'RU2_A',  x: 300, y: 150, label: 'RU2' },
+    RU2_B:  { id: 'RU2_B',  x: 400, y: 150, label: 'RU2' },
+    SU_A:   { id: 'SU_A',   x: 200, y: 300, label: 'Switch' },
+    SU_B:   { id: 'SU_B',   x: 250, y: 300, label: 'Switch' },
+    BULB_A: { id: 'BULB_A', x: 500, y: 300, label: 'Bulb' },
+    BULB_B: { id: 'BULB_B', x: 550, y: 300, label: 'Bulb' },
+  };
+
+  const validateCircuit = () => {
+    // 1. Build an adjacency list from 'lines'
+    // 2. Check Rule 1: RU1_A connected to RU2_A AND RU1_B connected to RU2_B (Parallel)
+    // 3. Check Rule 2: Path exists from PS -> SU -> (RU1||RU2) -> BULB -> PS (Series)
+    
+    const hasParallel = checkParallel(lines);
+    const isClosed = checkSeriesPath(lines);
+
+    if (hasParallel && isClosed) {
+      setIsSuccess(true);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      {isSuccess && (
+        <div className="bg-green-500 text-white p-4 mb-4 rounded-lg animate-bounce">
+          Success! The Circuit is Functional.
+        </div>
+      )}
+      
+      <Stage width={800} height={600} style={{ border: '1px solid #ccc' }}>
+        <Layer>
+          {/* Background Image */}
+          {img && <Image image={img} width={800} height={600} opacity={0.5} />}
+          
+          {/* Draw Anchors */}
+          {Object.values(anchors).map(anchor => (
+            <Circle 
+              key={anchor.id} 
+              x={anchor.x} 
+              y={anchor.y} 
+              radius={8} 
+              fill="red" 
+              onClick={() => handleAnchorClick(anchor.id)}
+            />
+          ))}
+
+          {/* Draw Wires */}
+          {lines.map((line, i) => (
+            <Line
+              key={i}
+              points={[anchors[line.start].x, anchors[line.start].y, anchors[line.end].x, anchors[line.end].y]}
+              stroke="black"
+              strokeWidth={3}
+            />
+          ))}
+        </Layer>
+      </Stage>
+      
+      <button 
+        onClick={validateCircuit}
+        className="mt-4 px-6 py-2 bg-blue-600 text-white rounded"
+      >
+        Test Circuit
+      </button>
+    </div>
+  );
+};
